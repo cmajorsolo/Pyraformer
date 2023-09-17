@@ -7,6 +7,7 @@ from utils.tools import StandardScaler
 from utils.timefeatures import time_features
 import numpy as np
 import torch
+import math
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -107,22 +108,39 @@ class Dataset_ETT_minute(Dataset):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
+                                        
+        # This model seems has no validation step. Only the train dataset and the dataset used to evaluate the model
+        # It means that self.set_type will never be 1
+        num_train = int(len(df_raw) * 0.7)
+        num_test = int(len(df_raw) * 0.3)
+        num_vali = len(df_raw) - num_train - num_test
+        border1s = [0, num_train - self.seq_len, len(df_raw) - num_test - self.seq_len]
+        border2s = [num_train, num_train + num_vali, len(df_raw)]
+        # Below is the original code 
+        # border1s = [0, 12*30*24*4 - self.seq_len, 12*30*24*4+4*30*24*4 - self.seq_len]
+        # border2s = [12*30*24*4, 12*30*24*4+4*30*24*4, 12*30*24*4+8*30*24*4]
 
-        border1s = [0, 12*30*24*4 - self.seq_len, 12*30*24*4+4*30*24*4 - self.seq_len]
-        border2s = [12*30*24*4, 12*30*24*4+4*30*24*4, 12*30*24*4+8*30*24*4]
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
+        if self.set_type == 0: # train
+            border1 = border1s[self.set_type]
+            border2 = border2s[self.set_type]
+        # if use self.set_type to determine the data, there will be a data loss because there is no validation step in the model definition
+        # in long_range_main.py. Only train or val step. The vali step here is actually evaludation step. 
+        elif self.set_type == 1 or self.set_type == 2:
+            border1 = border1s[1]
+            border2 = border2s[2]
         
         cols_data = df_raw.columns[1:]
         df_data = df_raw[cols_data]
 
-        train_data = df_data[border1s[0]:border2s[0]]
-        self.scaler.fit(train_data.values)
+        # NOTE: comment out not used code 
+        # train_data = df_data[border1s[0]:border2s[0]]
+        # self.scaler.fit(train_data.values)
         data = self.scaler.transform(df_data.values)
 
         df_stamp = df_raw[['date']][border1:border2]
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        data_stamp = time_features(df_stamp, timeenc=1, freq='h')
+        # NOTE: timeenc=1, freq='t' means that the time features are extracted from the minute level
+        data_stamp = time_features(df_stamp, timeenc=1, freq='t')
         
         self.data_x = data[border1:border2]
         if self.inverse:

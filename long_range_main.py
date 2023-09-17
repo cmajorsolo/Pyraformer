@@ -84,7 +84,8 @@ def dataset_parameters(args, dataset):
         'ETTm2':7,
         'elect':1,
         'flow': 1,
-        'synthetic': 1
+        'synthetic': 1,
+        'btc': 5
     }
     dataset2cov_size = {
         'ETTh1':4,
@@ -94,6 +95,7 @@ def dataset_parameters(args, dataset):
         'elect':3,
         'flow': 3,
         'synthetic': 3,
+        'btc': 3
     }
     dataset2seq_num = {
         'ETTh1':1,
@@ -102,7 +104,8 @@ def dataset_parameters(args, dataset):
         'ETTm2':1,
         'elect':321,
         'flow': 1077,
-        'synthetic': 60
+        'synthetic': 60,
+        'btc': 1
     }
     dataset2embed = {
         'ETTh1':'DataEmbedding',
@@ -111,7 +114,8 @@ def dataset_parameters(args, dataset):
         'ETTm2':'DataEmbedding',
         'elect':'CustomEmbedding',
         'flow': 'CustomEmbedding',
-        'synthetic': 'CustomEmbedding'
+        'synthetic': 'CustomEmbedding',
+        'btc': 'CustomEmbedding'
     }
 
     args.enc_in = dataset2enc_in[dataset]
@@ -279,16 +283,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # running mode
-    parser.add_argument('-eval', action='store_true', default=False)
+    parser.add_argument('-eval', action='store_true', default=False, help='train or evaluate the model')
 
     # Path parameters
-    parser.add_argument('-data', type=str, default='ETTh1')
-    parser.add_argument('-root_path', type=str, default='./data/ETT/', help='root path of the data file')
-    parser.add_argument('-data_path', type=str, default='ETTh1.csv', help='data file')
+    parser.add_argument('-data', type=str, default='ETTm1')
+    parser.add_argument('-root_path', type=str, default='data/ETT/ETTm1', help='root path of the data file')
+    parser.add_argument('-data_path', type=str, default='ETTm1_short.csv', help='data file')
 
     # Dataloader parameters.
-    parser.add_argument('-input_size', type=int, default=168)
-    parser.add_argument('-predict_step', type=int, default=168)
+    parser.add_argument('-input_size', type=int, default=96)
+    parser.add_argument('-predict_step', type=int, default=48)
     parser.add_argument('-inverse', action='store_true', help='denormalize output data', default=False)
 
     # Architecture selection.
@@ -300,29 +304,29 @@ def parse_args():
     parser.add_argument('-batch_size', type=int, default=32)
     parser.add_argument('-pretrain', action='store_true', default=False)
     parser.add_argument('-hard_sample_mining', action='store_true', default=False)
-    parser.add_argument('-dropout', type=float, default=0.05)
+    parser.add_argument('-dropout', type=float, default=0.2)
     parser.add_argument('-lr', type=float, default=1e-4)
     parser.add_argument('-lr_step', type=float, default=0.1)
 
     # Common Model parameters.
-    parser.add_argument('-d_model', type=int, default=512)
+    parser.add_argument('-d_model', type=int, default=256)
     parser.add_argument('-d_inner_hid', type=int, default=512)
-    parser.add_argument('-d_k', type=int, default=128)
-    parser.add_argument('-d_v', type=int, default=128)
-    parser.add_argument('-d_bottleneck', type=int, default=128)
-    parser.add_argument('-n_head', type=int, default=4)
+    parser.add_argument('-d_k', type=int, default=64)
+    parser.add_argument('-d_v', type=int, default=64)
+    parser.add_argument('-d_bottleneck', type=int, default=64)
+    parser.add_argument('-n_head', type=int, default=6)
     parser.add_argument('-n_layer', type=int, default=4)
 
     # Pyraformer parameters.
-    parser.add_argument('-window_size', type=str, default='[4, 4, 4]') # The number of children of a parent node.
+    parser.add_argument('-window_size', type=str, default='[5, 5, 5]') # The number of children of a parent node.
     parser.add_argument('-inner_size', type=int, default=3) # The number of ajacent nodes.
     # CSCM structure. selection: [Bottleneck_Construct, Conv_Construct, MaxPooling_Construct, AvgPooling_Construct]
     parser.add_argument('-CSCM', type=str, default='Bottleneck_Construct')
     parser.add_argument('-truncate', action='store_true', default=False) # Whether to remove coarse-scale nodes from the attention structure
     parser.add_argument('-use_tvm', action='store_true', default=False) # Whether to use TVM.
 
-    # Experiment repeat times.
-    parser.add_argument('-iter_num', type=int, default=5) # Repeat number.
+    # NOTE: Experiment repeat times. Original default is 5. 
+    parser.add_argument('-iter_num', type=int, default=1) # Repeat number.
 
     opt = parser.parse_args()
     return opt
@@ -365,7 +369,7 @@ def main(opt, iter_index):
 if __name__ == '__main__':
     opt = parse_args()
     opt = dataset_parameters(opt, opt.data)
-    opt.window_size = eval(opt.window_size)
+    opt.window_size = eval(opt.window_size) # convert string to list
     iter_num = opt.iter_num
     all_perf = []
     for i in range(iter_num):
